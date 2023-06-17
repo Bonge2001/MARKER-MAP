@@ -1,0 +1,321 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Map Marker Application</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.19.1/css/mdb.min.css" />
+  <style>
+    /* Map container */
+    #map {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 0;
+    }
+
+    /* Top dashboard */
+    #top-dashboard {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background-color: #ffffff;
+      padding: 10px;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: flex-end; /* Move the input to the right */
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    #search-input {
+      width: 250px;
+      height: 30px;
+      padding: 5px;
+      font-size: 14px;
+      margin-left: 10px;
+    }
+
+    #search-button {
+      height: 30px;
+      padding: 5px 10px;
+      font-size: 14px;
+      background-color: #8b940c;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    #search-button:hover {
+      background-color: #012041;
+    }
+
+    /* Sidebar */
+    #sidebar {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 250px;
+      height: 100%;
+      background-color: #fff;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      z-index: 1000;
+      overflow-y: auto;
+      padding-top: 60px;
+    }
+
+    .sidebar-header {
+      padding: 10px;
+      text-align: center;
+      background-color: #007bff;
+      color: #fff;
+    }
+
+    .sidebar-header h3 {
+      margin: 0;
+    }
+
+    .list-unstyled {
+      padding: 0;
+      margin: 0;
+    }
+
+    .list-unstyled li {
+      padding: 10px;
+    }
+
+    .list-unstyled li:hover {
+      background-color: #f8f9fa;
+    }
+
+    .list-unstyled li.active {
+      background-color: #e9ecef;
+    }
+
+    /* Popup styles */
+    .leaflet-popup-content-wrapper {
+      background-color: #fff;
+      color: #333;
+    }
+
+    .leaflet-popup-content {
+      padding: 10px;
+    }
+
+    .leaflet-popup-close-button {
+      position: absolute;
+      top: 2px;
+      right: 8px;
+      color: #999;
+      background-color: transparent;
+      border: none;
+      cursor: pointer;
+    }
+
+    .leaflet-popup-close-button:hover {
+      color: #555;
+    }
+
+    /* Marker icon */
+    .leaflet-marker-icon {
+      background-image: url('marker-icon.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: 50% 50%;
+      width: 25px;
+      height: 41px;
+      margin-top: -41px;
+      margin-left: -13px;
+    }
+
+    /* Marker shadow */
+    .leaflet-marker-shadow {
+      background-image: url('marker-shadow.png');
+      background-size: contain;
+      background-repeat: no-repeat;
+      background-position: 50% 50%;
+      width: 41px;
+      height: 41px;
+      margin-top: -41px;
+      margin-left: -20px;
+    }
+  </style>
+</head>
+<body>
+    <div id="top-dashboard">
+  <h3 style="color: white; margin-right: auto; margin-left: 10px;  font-family: initial">GeoMarker: Interactive Map Application for Marking and Note-taking</h3>
+  <input type="text" id="search-input" placeholder="Search location" />
+  <button id="search-button">Search</button>
+</div>
+  <div id="top-dashboard">
+    <input type="text" id="search-input" placeholder="Search location" />
+    <button id="search-button">Search</button>
+  </div>
+
+  <div id="sidebar">
+    <div class="sidebar-header">
+      <h3>MAP MARKER APPLICATION</h3>
+    </div>
+    <ul class="list-unstyled components">
+      <li class="active">
+        <a href="#homeSubmenu" data-toggle="collapse" aria-expanded="false" class="dropdown-toggle">
+              Home
+
+        </a>
+        <ul class="collapse list-unstyled" id="homeSubmenu">
+          <li>
+            <a href="index.html">Dashboard</a>
+          </li>
+          <li>
+            <a href="index.html">Search</a>
+          </li>
+        </ul>
+      </li>
+    </ul>
+  </div>
+
+  <div id="map"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/leaflet.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/mdbootstrap/4.19.1/js/mdb.min.js"></script>
+  <script>
+    // Initialize the map
+    var map = L.map('map').setView([0, 0], 2); // Default view with center and zoom level
+
+    // Create a tile layer for the map
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: 'Map data &copy; <a href="https://www.openstreetmap.org/">OpenStreetMap</a> contributors',
+      maxZoom: 18,
+    }).addTo(map);
+
+    // Array to store markers
+    var markers = [];
+
+    // Function to handle marker placement on map click
+    function placeMarker(e) {
+      // Create a new marker at the clicked location
+      var marker = L.marker(e.latlng, { icon: L.icon({ iconUrl: 'marker-icon.png' }) }).addTo(map);
+
+      // Get the notes associated with the marker
+      var notes = getMarkerNotes();
+
+      // Store the marker coordinates and associated notes in local storage
+      localStorage.setItem('marker_' + marker._leaflet_id, JSON.stringify({
+        lat: e.latlng.lat,
+        lng: e.latlng.lng,
+        notes: notes
+      }));
+
+      // Add the marker to the markers array
+      markers.push(marker);
+
+      // Open a popup to add or view notes
+      marker.bindPopup(getMarkerPopupContent(marker._leaflet_id)).openPopup();
+    }
+
+    // Function to get the notes associated with a marker from local storage
+    function getMarkerNotes() {
+      var notes = localStorage.getItem('marker_notes');
+      return notes ? JSON.parse(notes) : [];
+    }
+
+    // Function to update the notes associated with a marker in local storage
+    function updateMarkerNotes(markerId, notes) {
+      localStorage.setItem('marker_notes', JSON.stringify(notes));
+    }
+
+    // Function to get the popup content for a marker
+    function getMarkerPopupContent(markerId) {
+      var notes = getMarkerNotes(markerId);
+      var content = '<h4>Marker Notes</h4>';
+      content += '<ul>';
+      for (var i = 0; i < notes.length; i++) {
+        content += '<li>' + notes[i] + '</li>';
+      }
+      content += '</ul>';
+      content += '<input type="text" id="note-input" placeholder="Add a note" />';
+      content += '<button onclick="addNote(' + markerId + ')">Add Note</button>';
+      return content;
+    }
+
+    // Function to add a note to a marker
+    function addNote(markerId) {
+      var noteInput = document.getElementById('note-input');
+      var note = noteInput.value;
+      if (note !== '') {
+        var notes = getMarkerNotes();
+        notes.push(note);
+        updateMarkerNotes(markerId, notes);
+        noteInput.value = '';
+
+        // Refresh the popup content to show the updated notes
+        var marker = getMarkerById(markerId);
+        marker.bindPopup(getMarkerPopupContent(markerId)).openPopup();
+      }
+    }
+
+    // Function to get a marker by its id
+    function getMarkerById(markerId) {
+      for (var i = 0; i < markers.length; i++) {
+        if (markers[i]._leaflet_id === markerId) {
+          return markers[i];
+        }
+      }
+      return null;
+    }
+
+    // Add event listener for map click
+    map.on('click', placeMarker);
+
+    // Load existing markers from local storage
+    for (var i = 0; i < localStorage.length; i++) {
+      var key = localStorage.key(i);
+      if (key.startsWith('marker_')) {
+        var markerData = JSON.parse(localStorage.getItem(key));
+        var marker = L.marker([markerData.lat, markerData.lng], { icon: L.icon({ iconUrl: 'marker-icon.png' }) }).addTo(map);
+        markers.push(marker);
+        marker.bindPopup(getMarkerPopupContent(marker._leaflet_id)).openPopup();
+      }
+    }
+
+    // Handle search button click event
+    document.getElementById('search-button').addEventListener('click', function () {
+      var location = document.getElementById('search-input').value;
+      if (location !== '') {
+        // Use a geocoding service to get coordinates for the searched location
+        var geocodeUrl = 'https://nominatim.openstreetmap.org/search?format=json&limit=1&q=' + location;
+
+        $.getJSON(geocodeUrl, function (data) {
+          if (data.length > 0) {
+            var lat = data[0].lat;
+            var lon = data[0].lon;
+
+            // Update the map view to the searched location
+            map.setView([lat, lon], 12);
+
+            // Place a marker at the searched location
+            var marker = L.marker([lat, lon], { icon: L.icon({ iconUrl: 'marker-icon.png' }) }).addTo(map);
+
+            // Store the marker coordinates in local storage
+            localStorage.setItem('marker_' + marker._leaflet_id, JSON.stringify({
+              lat: lat,
+              lng: lon,
+              notes: []
+            }));
+
+            // Add the marker to the markers arraymap
+            markers.push(marker);
+
+            // Open a popup to add or view notes
+            marker.bindPopup(getMarkerPopupContent(marker._leaflet_id)).openPopup();
+          }
+        });
+      }
+    });
+  </script>
+</body>
+</html>
